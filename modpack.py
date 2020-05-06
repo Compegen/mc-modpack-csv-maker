@@ -1,5 +1,4 @@
 '''
-Created 2020-05-06 by Derek R / Compegen
 
 Automated Minecraft modpack list generator
 ------------------------------------------
@@ -12,6 +11,9 @@ TODO:
 ! Open & read all files in a folder
 ! zipfile
 ! Check for when a file cannot be opened & skip it
+
+Format of mcmod.info file:
+    https://github.com/MinecraftForge/FML/wiki/FML-mod-information-file
 
 '''
 # For GUI
@@ -35,6 +37,9 @@ import os, ntpath, glob
 
 # For filename
 import time
+
+#For debug
+#import traceback
 
 
 # Folder to look for mods. Default to working directory
@@ -113,7 +118,8 @@ def runFolder():
             #Unzip file
             try:
                 with zipfile.ZipFile(filename) as jar:
-                    extractMODINFO(jar)
+                    extractFromJar(jar)
+
             except Exception as exc:
                 print("Couldn't unzip "+filename)
                 print("    ", end="")
@@ -125,8 +131,9 @@ def runFolder():
         print("    ", end="")
         print(exc)
 
+
 # Open the modinfo & get attributes we want
-def extractMODINFO(jar):
+def extractFromJar(jar):
     global modlist
 
     # Base entry
@@ -135,41 +142,56 @@ def extractMODINFO(jar):
     # Does a mcmod.info exist
     try:
         with jar.open('mcmod.info') as mod:
-            mcinfo_raw = json.loads(mod.read())
+            # Get raw json file
+            mcinfo_raw = json.loads(mod.read(), strict=False)
 
-            # Check for mcinfo version
-            if isinstance(mcinfo_raw[0], object):
-                mcinfo = mcinfo_raw[0]
+            # If the mod uses the new standard, we need to get info from 'modlist'
+            if 'modlist' in mcinfo_raw:
+                mcinfo = mcinfo_raw['modlist']
+            elif 'modList' in mcinfo_raw:
+                mcinfo = mcinfo_raw['modList']
             else:
-                mcinfo = mcinfo[1][0]
+                mcinfo = mcinfo_raw
 
+            # Let's finally get the info we're after
+            extractMODLIST(mcinfo, entry)
 
-            mcinfo = mcinfo_raw[0]
-            #print("\n---MCINFO---\n"+str(mcinfo))
-
- 
-            # Isn't it fun that the name & link attributes aren't required as part of the mcp standard
-            try:
-                entry['modname'] = str(mcinfo['name'])
-            except:
-                #print("NO_NAME")
-                entry['modname'] = "NO_NAME"
-            try:
-                entry['link'] = str(mcinfo['url'])
-            except:
-                #print("NO_URL")
-                entry['link'] = "NO_URL"
-                
-
-            
-    except Exception as exc:
+    except KeyError:
         print("Couldn't find 'mcmod.info' in "+entry['filename'])
+        modlist.append(entry)
+    except Exception as exc:
+        print("Malformed 'mcmod.info' in "+entry['filename'])
         print("    ", end="")
         print(exc)
+        modlist.append(entry)
+        
+    
 
-    #print("\n----ENTRY----\n"+str(entry))
+def extractMODLIST(info, entry):
+    global modlist
+
+    # We only want the first mod in a modinfo
+    mod = info
+    try:
+        # modinfo's can be an array of mods
+        mod = info[0]
+    except:
+        pass
+        
+    # Isn't it fun that the name & link attributes aren't required as part of the FML standard
+    try:
+        entry['modname'] = str(mod['name'])
+    except:
+        #print("NO_NAME")
+        entry['modname'] = "NO_NAME"
+    try:
+        entry['link'] = str(mod['url'])
+    except:
+        #print("NO_URL")
+        entry['link'] = "NO_URL"
+
+    #print("\n\nENTRY:\n"+str(entry)+"\n\n")
     modlist.append(entry)
-
         
 
 
