@@ -1,4 +1,5 @@
 '''
+Created 2020-05-06 by Derek R / Compegen
 
 Automated Minecraft modpack list generator
 ------------------------------------------
