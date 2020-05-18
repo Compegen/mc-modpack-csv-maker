@@ -16,6 +16,8 @@ Format of mcmod.info file:
     https://github.com/MinecraftForge/FML/wiki/FML-mod-information-file
 
 '''
+
+
 # For GUI
 from tkinter import *
 import tkinter.filedialog
@@ -52,16 +54,16 @@ modlist = []
 def fillDirectory():
     global folder
 
-    print("Getting user directory")
-    folder = tkinter.filedialog.askdirectory()
+    print("Getting user directory...")
+    hold = tkinter.filedialog.askdirectory()
+    folder = hold if hold != "" else folder
+    
     browseBar['text'] = str(folder)
     print("Directory set to "+str(folder))
 
 
 # When we hit run, do things.    
 def getItGoing():
-    global modlist
-    global folder
 
     # Update GUI to reflect current state
     runB['state'] = "disable"
@@ -70,14 +72,33 @@ def getItGoing():
     statustag['bg'] = "red"
     master.update()
 
-    # Make sure we start with a fresh modlist every run
-    modlist.clear()
-
-    # Do that thing we do
+    # Start creating modlist
     runFolder()
 
+    #Create final modlist
+    outputModlist()
 
-    # Create final modlist & export it to a .csv file
+    #Update the GUI to reflect the current state
+    statustag['text'] = "Finished"
+    statustag['bg'] = "Green"
+    master.update()
+
+    time.sleep(1.5)
+    runB['state'] = "normal"
+
+    statustag['text'] = "Idle"
+    statustag['bg'] = "black"
+    master.update()
+
+
+#Create output file & export it
+def outputModlist():
+    global modlist
+    global folder
+
+    modlist.sort(key=lambda e: e['modname'].lower())
+    #print(modlist)
+
     filename = "MODLIST-"+time.strftime("%Y.%m.%d-%H%M%S"+".csv")
     try:
         with open(filename, "w", newline='') as sheet:
@@ -94,23 +115,14 @@ def getItGoing():
         print("    ", end="")
         print(exc)
 
-    #Update the GUI to reflect the current state
-    statustag['text'] = "Finished"
-    statustag['bg'] = "Green"
-    master.update()
-
-    time.sleep(2)
-    runB['state'] = "normal"
-
-    statustag['text'] = "Idle"
-    statustag['bg'] = "black"
-    master.update()
-
 
 # Open folder & start getting information
 def runFolder():
-    global folder
+
+    #Clean current modlist before running
+    modlist.clear()
     print("Opening "+str(folder))
+
     #Are there jar files to analyze?
     try:
         for filename in glob.glob(os.path.join(folder, '*.jar')):
@@ -137,12 +149,13 @@ def extractFromJar(jar):
     global modlist
 
     # Base entry
-    entry = {"modname" : "", "link":"", "filename": ntpath.basename(jar.filename)}
+    entry = {"modname":"", "link":"", "filename": ntpath.basename(jar.filename)}
 
     # Does a mcmod.info exist
     try:
         with jar.open('mcmod.info') as mod:
             # Get raw json file
+            
             mcinfo_raw = json.loads(mod.read(), strict=False)
 
             # If the mod uses the new standard, we need to get info from 'modlist'
@@ -150,21 +163,37 @@ def extractFromJar(jar):
                 mcinfo = mcinfo_raw['modlist']
             elif 'modList' in mcinfo_raw:
                 mcinfo = mcinfo_raw['modList']
+            elif 'MODLIST' in mcinfo_raw:
+                mcinfo = mcinfo_raw['MODLIST']
             else:
                 mcinfo = mcinfo_raw
 
             # Let's finally get the info we're after
             extractMODLIST(mcinfo, entry)
+            return
 
     except KeyError:
         print("Couldn't find 'mcmod.info' in "+entry['filename'])
-        modlist.append(entry)
+
     except Exception as exc:
         print("Malformed 'mcmod.info' in "+entry['filename'])
-        print("    ", end="")
-        print(exc)
-        modlist.append(entry)
+
+    entry["modname"] = formatFN(ntpath.basename(jar.filename))
+    modlist.append(entry)
+    
         
+
+def formatFN(fn):
+
+    for i in range(len(fn)):
+        if not fn[i].isalpha() and not fn[i].isnumeric():
+            try:
+                if not fn[i+1].isalpha() or fn[i+2].isnumeric():
+                    return(fn[:i])
+            except:
+                return(fn[:i])
+    return(fn)
+
     
 
 def extractMODLIST(info, entry):
@@ -180,15 +209,15 @@ def extractMODLIST(info, entry):
         
     # Isn't it fun that the name & link attributes aren't required as part of the FML standard
     try:
-        entry['modname'] = str(mod['name'])
+        entry['modname'] = str(mod["name"])
     except:
         #print("NO_NAME")
-        entry['modname'] = "NO_NAME"
+        entry['modname'] = formatFN(entry["filename"])
     try:
-        entry['link'] = str(mod['url'])
+        entry['link'] = str(mod["url"])
     except:
         #print("NO_URL")
-        entry['link'] = "NO_URL"
+        entry['link'] = ''
 
     #print("\n\nENTRY:\n"+str(entry)+"\n\n")
     modlist.append(entry)
