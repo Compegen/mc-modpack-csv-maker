@@ -12,8 +12,9 @@ Tries to automatically make a csv file based on the contents of the mcmod.info o
 
 - Be efficient
 - List author names
-- Handle malformed json's
+- Extract info from malformed json's
 - Handle really long mod descriptions on multiple lines
+- Handle multiple mods in one mcinfo
 
 _____
 This was made as a realitively simple project to make generating the modlist to my custom modpacks easier. 
